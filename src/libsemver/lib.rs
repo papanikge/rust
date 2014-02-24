@@ -80,7 +80,7 @@ impl ToStr for Identifier {
 
 
 /// Represents a version number conforming to the semantic versioning scheme.
-#[deriving(Clone, Eq)]
+#[deriving(Clone)]
 pub struct Version {
     /// The major version, to be incremented on incompatible changes.
     major: uint,
@@ -122,6 +122,19 @@ impl ToStr for Version {
     #[inline]
     fn to_str(&self) -> ~str {
         format!("{}", *self)
+    }
+}
+
+impl cmp::Eq for Version {
+    #[inline]
+    fn eq(&self, other: &Version) -> bool {
+        // We should ignore build metadata here, otherwise versions v1 and v2
+        // can exist such that !(v1 < v2) && !(v1 > v2) && v1 != v2, which
+        // violate strict total ordering rules.
+        self.major == other.major &&
+            self.minor == other.minor &&
+            self.patch == other.patch &&
+            self.pre == other.pre
     }
 }
 
@@ -362,6 +375,7 @@ fn test_eq() {
     assert_eq!(parse("1.2.3-alpha1"), parse("1.2.3-alpha1"));
     assert_eq!(parse("1.2.3+build.42"), parse("1.2.3+build.42"));
     assert_eq!(parse("1.2.3-alpha1+42"), parse("1.2.3-alpha1+42"));
+    assert_eq!(parse("1.2.3+23"), parse("1.2.3+42"));
 }
 
 #[test]
@@ -370,7 +384,6 @@ fn test_ne() {
     assert!(parse("0.0.0")       != parse("0.1.0"));
     assert!(parse("0.0.0")       != parse("1.0.0"));
     assert!(parse("1.2.3-alpha") != parse("1.2.3-beta"));
-    assert!(parse("1.2.3+23")    != parse("1.2.3+42"));
 }
 
 #[test]
@@ -391,11 +404,11 @@ fn test_to_str() {
 
 #[test]
 fn test_lt() {
-    assert!(parse("0.0.0")        < parse("1.2.3-alpha2"));
-    assert!(parse("1.0.0")        < parse("1.2.3-alpha2"));
-    assert!(parse("1.2.0")        < parse("1.2.3-alpha2"));
-    assert!(parse("1.2.3-alpha1") < parse("1.2.3"));
-    assert!(parse("1.2.3-alpha1") < parse("1.2.3-alpha2"));
+    assert!(parse("0.0.0")          < parse("1.2.3-alpha2"));
+    assert!(parse("1.0.0")          < parse("1.2.3-alpha2"));
+    assert!(parse("1.2.0")          < parse("1.2.3-alpha2"));
+    assert!(parse("1.2.3-alpha1")   < parse("1.2.3"));
+    assert!(parse("1.2.3-alpha1")   < parse("1.2.3-alpha2"));
     assert!(!(parse("1.2.3-alpha2") < parse("1.2.3-alpha2")));
     assert!(!(parse("1.2.3+23")     < parse("1.2.3+42")));
 }
@@ -412,11 +425,11 @@ fn test_le() {
 
 #[test]
 fn test_gt() {
-    assert!(parse("1.2.3-alpha2") > parse("0.0.0"));
-    assert!(parse("1.2.3-alpha2") > parse("1.0.0"));
-    assert!(parse("1.2.3-alpha2") > parse("1.2.0"));
-    assert!(parse("1.2.3-alpha2") > parse("1.2.3-alpha1"));
-    assert!(parse("1.2.3")        > parse("1.2.3-alpha2"));
+    assert!(parse("1.2.3-alpha2")   > parse("0.0.0"));
+    assert!(parse("1.2.3-alpha2")   > parse("1.0.0"));
+    assert!(parse("1.2.3-alpha2")   > parse("1.2.0"));
+    assert!(parse("1.2.3-alpha2")   > parse("1.2.3-alpha1"));
+    assert!(parse("1.2.3")          > parse("1.2.3-alpha2"));
     assert!(!(parse("1.2.3-alpha2") > parse("1.2.3-alpha2")));
     assert!(!(parse("1.2.3+23")     > parse("1.2.3+42")));
 }
@@ -433,7 +446,6 @@ fn test_ge() {
 
 #[test]
 fn test_spec_order() {
-
     let vs = ["1.0.0-alpha",
               "1.0.0-alpha.1",
               "1.0.0-alpha.beta",
